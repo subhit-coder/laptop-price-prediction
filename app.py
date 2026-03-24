@@ -2,7 +2,39 @@ import streamlit as st
 import joblib
 import numpy as np
 import pandas as pd
+# Custom CSS for background and card
+def set_bg():
+    st.markdown(f"""
+    <style>
+    .stApp {{
+        background: url("https://images.unsplash.com/photo-1517336714731-489689fd1ca8");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }}
 
+    .main-card {{
+        background-color: rgba(255, 255, 255, 0.9);
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0px 4px 20px rgba(0,0,0,0.2);
+    }}
+
+    .stButton>button {{
+        background-color: #4CAF50;
+        color: white;
+        font-size: 16px;
+        border-radius: 10px;
+        padding: 10px 20px;
+    }}
+
+    .stSelectbox, .stNumberInput, .stSlider {{
+        margin-bottom: 10px;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+
+set_bg()
 # Load model and dataset
 pipe = joblib.load('pipe.pkl')
 df = pd.read_csv('df.csv')
