@@ -1,66 +1,121 @@
-import streamlit as st
-import pickle
-import numpy as np
 
-# import the model
-pipe = pickle.load(open('pipe.pkl','rb'))
-df = pickle.load(open('df.pkl','rb'))
+# ======================
+# PAGE CONFIG
+# ======================
+st.set_page_config(page_title="LaptopIQ", layout="wide", page_icon="💻")
 
-st.title("Laptop Predictor")
+# ======================
+# PARTICLE CANVAS (JS — renders in hidden iframe that injects into parent)
+# ======================
+components.html("""
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { background: transparent; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+(function() {
+  // Try to inject canvas into parent Streamlit page
+  try {
+    const parentDoc = window.parent.document;
+    const existing = parentDoc.getElementById('laptopiq-canvas');
+    if (existing) existing.remove();
 
-# brand
-company = st.selectbox('Brand',df['Company'].unique())
+    const canvas = parentDoc.createElement('canvas');
+    canvas.id = 'laptopiq-canvas';
+    canvas.style.cssText = `
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.55;
+    `;
+    parentDoc.body.prepend(canvas);
 
-# type of laptop
-type = st.selectbox('Type',df['TypeName'].unique())
+    const ctx = canvas.getContext('2d');
+    canvas.width  = window.parent.innerWidth;
+    canvas.height = window.parent.innerHeight;
 
-# Ram
-ram = st.selectbox('RAM(in GB)',[2,4,6,8,12,16,24,32,64])
+    window.parent.addEventListener('resize', () => {
+      canvas.width  = window.parent.innerWidth;
+      canvas.height = window.parent.innerHeight;
+    });
 
-# weight
-weight = st.number_input('Weight of the Laptop')
+    const PARTICLE_COUNT = 70;
+    const particles = [];
 
-# Touchscreen
-touchscreen = st.selectbox('Touchscreen',['No','Yes'])
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 2 + 0.4,
+        dx: (Math.random() - 0.5) * 0.35,
+        dy: (Math.random() - 0.5) * 0.35,
+        alpha: Math.random() * 0.5 + 0.1,
+        color: Math.random() > 0.5 ? '99,102,241' : '168,85,247',
+      });
+    }
 
-# IPS
-ips = st.selectbox('IPS',['No','Yes'])
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-# screen size
-screen_size = st.slider('Scrensize in inches', 10.0, 18.0, 13.0)
+      // Draw connections
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 130) {
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(99,102,241,${0.12 * (1 - dist / 130)})`;
+            ctx.lineWidth = 0.6;
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.stroke();
+          }
+        }
+      }
 
-# resolution
-resolution = st.selectbox('Screen Resolution',['1920x1080','1366x768','1600x900','3840x2160','3200x1800','2880x1800','2560x1600','2560x1440','2304x1440'])
+      // Draw particles
+      particles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${p.color},${p.alpha})`;
+        ctx.fill();
 
-#cpu
-cpu = st.selectbox('CPU',df['Cpu brand'].unique())
+        p.x += p.dx;
+        p.y += p.dy;
+        if (p.x < 0 || p.x > canvas.width)  p.dx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.dy *= -1;
+      });
 
-hdd = st.selectbox('HDD(in GB)',[0,128,256,512,1024,2048])
+      requestAnimationFrame(draw);
+    }
+    draw();
+  } catch(e) {
+    // CSP blocked — silently fail, CSS bg handles it
+    console.log('Particle injection blocked:', e.message);
+  }
+})();
+</script>
+</body>
+</html>
+""", height=0, scrolling=False)
 
-ssd = st.selectbox('SSD(in GB)',[0,8,128,256,512,1024])
 
-gpu = st.selectbox('GPU',df['Gpu brand'].unique())
+# ======================
+# GLOBAL CSS
+# ======================
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800;900&family=Nunito:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 
-os = st.selectbox('OS',df['os'].unique())
-
-if st.button('Predict Price'):
-    # query
-    ppi = None
-    if touchscreen == 'Yes':
-        touchscreen = 1
-    else:
-        touchscreen = 0
-
-    if ips == 'Yes':
-        ips = 1
-    else:
-        ips = 0
-
-    X_res = int(resolution.split('x')[0])
-    Y_res = int(resolution.split('x')[1])
-    ppi = ((X_res**2) + (Y_res**2))**0.5/screen_size
-    query = np.array([company,type,ram,weight,touchscreen,ips,ppi,cpu,hdd,ssd,gpu,os])
-
-    query = query.reshape(1,12)
-    st.title("The predicted price of this configuration is " + str(int(np.exp(pipe.predict(query)[0]))))
-
+/* ── CSS Custom Properties ── */
+:root {
+  --bg:         #080810;
